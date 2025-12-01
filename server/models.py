@@ -25,24 +25,20 @@ class SemanticBlockModel(BaseModel):
     end_line: int
     content: str
     rank_score: float
+    em_content: Optional[List[float]] = None
 
 class SemanticBlocksResponse(BaseModel):
     blocks: List[SemanticBlockModel]
 
-class SummaryRequest(BaseModel):
+class EmbedSummaryRequest(BaseModel):
     repo_map: str
 
-class SummaryResponse(BaseModel):
-    summary: str
-
-class EmbedSummaryRequest(BaseModel):
-    summary: str
-
 class EmbedSummaryResponse(BaseModel):
-    embedding: List[float]
+    summary: str
+    em_summary: List[float]
 
 class EmbedBlocksRequest(BaseModel):
-    blocks: List[str]  # List of block contents
+    blocks: List[SemanticBlockModel]
 
 class EmbedBlocksResponse(BaseModel):
-    embeddings: List[List[float]]
+    blocks: List[SemanticBlockModel]
