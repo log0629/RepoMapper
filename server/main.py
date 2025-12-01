@@ -7,21 +7,31 @@ from .models import (
     EmbedBlocksRequest, EmbedBlocksResponse
 )
 from .manager import RepositoryManager
-from rag import RepoSummaryGenerator, Embedder
-from unittest.mock import MagicMock
+import os
+from openai import OpenAI
+from rag import RepoSummaryGenerator, Embedder, OpenAILLMClient
 
 app = FastAPI(title="RepoMapper API")
 manager = RepositoryManager()
 
-# Initialize RAG components (Mocking for now as per previous demo, 
-# in production these would be initialized with real clients)
-mock_llm = MagicMock()
-mock_llm.generate_text.return_value = "This is a simulated summary."
-generator = RepoSummaryGenerator(llm_client=mock_llm)
+# Configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
-mock_embed_client = MagicMock()
-mock_embed_client.embeddings.create.return_value.data = [MagicMock(embedding=[0.1] * 1536)]
-embedder = Embedder(client=mock_embed_client)
+if not OPENAI_API_KEY:
+    print("Warning: OPENAI_API_KEY not set. RAG features will fail.")
+    OPENAI_API_KEY = "missing"
+
+# Initialize OpenAI Client
+client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+
+# Initialize RAG components
+llm_client = OpenAILLMClient(client=client, model=LLM_MODEL)
+generator = RepoSummaryGenerator(llm_client=llm_client)
+# Embedder uses local model, no client needed
+embedder = Embedder(model=EMBEDDING_MODEL or "all-MiniLM-L6-v2")
 
 
 @app.post("/repomap", response_model=RepoMapResponse)
