@@ -18,6 +18,8 @@ dependencies = [
     "scipy",
     "fastapi",
     "uvicorn",
+    "openai",
+    "sentence-transformers",
 ]
 
 [project.scripts]
