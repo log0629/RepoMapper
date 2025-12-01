@@ -74,3 +74,20 @@ def find_src_files(directory: str) -> List[str]:
                 src_files.append(full_path)
     
     return src_files
+
+
+def get_current_commit_sha(repo_path: str) -> Optional[str]:
+    """Get the current commit SHA of the repository."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Not a git repo or git not installed
+        return None
