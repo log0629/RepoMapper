@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from .models import (
     RepoRequest, RepoMapResponse, 
     SemanticBlocksResponse, 
-    SummaryRequest, SummaryResponse,
     EmbedSummaryRequest, EmbedSummaryResponse,
     EmbedBlocksRequest, EmbedBlocksResponse
 )
@@ -50,27 +49,33 @@ async def get_semantic_blocks(request: RepoRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/summary", response_model=SummaryResponse)
-async def get_summary(request: SummaryRequest):
-    try:
-        summary = generator.generate_summary(request.repo_map)
-        return SummaryResponse(summary=summary)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/embed/summary", response_model=EmbedSummaryResponse)
 async def embed_summary(request: EmbedSummaryRequest):
     try:
-        embedding = embedder.embed_text(request.summary)
-        return EmbedSummaryResponse(embedding=embedding)
+        # 1. Generate Summary
+        summary = generator.generate_summary(request.repo_map)
+        
+        # 2. Generate Embedding
+        embedding = embedder.embed_text(summary)
+        
+        return EmbedSummaryResponse(summary=summary, em_summary=embedding)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/embed/blocks", response_model=EmbedBlocksResponse)
 async def embed_blocks(request: EmbedBlocksRequest):
     try:
-        embeddings = embedder.embed_batch(request.blocks)
-        return EmbedBlocksResponse(embeddings=embeddings)
+        # Extract contents for batch embedding
+        contents = [block.content for block in request.blocks]
+        
+        # Generate embeddings
+        embeddings = embedder.embed_batch(contents)
+        
+        # Assign embeddings back to blocks
+        for block, embedding in zip(request.blocks, embeddings):
+            block.em_content = embedding
+            
+        return EmbedBlocksResponse(blocks=request.blocks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
