@@ -1,5 +1,5 @@
-from typing import Dict, List, Set
-from core import RepoMap, find_src_files, count_tokens
+from typing import Dict, List, Set, Tuple, Optional
+from core import RepoMap, find_src_files, count_tokens, get_current_commit_sha
 from dataclasses import asdict
 from .models import RepoRequest
 
@@ -40,14 +40,10 @@ class RepositoryManager:
             
         return self.repos[root_path]
 
-    def extract_repo_map(self, request: RepoRequest) -> str:
+    def extract_repo_map(self, request: RepoRequest) -> Tuple[str, Optional[str]]:
         repo_map = self.get_repo_map_instance(request)
         
         # Resolve files
-        # If other_files provided, use them. Else if not provided, find all files.
-        # Note: repomap.py logic: if other_files or paths given, use them. Else find all.
-        # Here we assume request.other_files contains the list if provided.
-        
         other_files = request.other_files
         if not other_files:
             other_files = find_src_files(request.root_path)
@@ -63,15 +59,13 @@ class RepositoryManager:
             mentioned_idents=mentioned_idents,
             force_refresh=request.force_refresh
         )
-        return content or ""
-
-    def extract_semantic_blocks(self, request: RepoRequest) -> List[dict]:
-        # For semantic blocks, we also need a RepoMap instance. 
-        # We can reuse the same logic but maybe we don't need all the chat_files etc for blocks?
-        # Usually semantic blocks are extracted from specific files or all files.
-        # The current implementation of get_semantic_blocks in RepoMap uses _calculate_file_ranks internally
-        # which uses chat_files etc. So we should pass them if we want consistent ranking.
         
+        # Get commit SHA
+        commit_sha = get_current_commit_sha(request.root_path)
+        
+        return content or "", commit_sha
+
+    def extract_semantic_blocks(self, request: RepoRequest) -> Tuple[List[dict], Optional[str]]:
         repo_map = self.get_repo_map_instance(request)
         
         other_files = request.other_files
@@ -81,11 +75,9 @@ class RepositoryManager:
         blocks = repo_map.get_semantic_blocks(
             other_fnames=other_files, 
             token_limit=request.token_limit,
-            # Note: get_semantic_blocks in repomap_class.py doesn't currently accept chat_files/mentioned args
-            # It only takes other_fnames and token_limit. 
-            # It calls _calculate_file_ranks(chat_fnames=[], other_fnames=other_fnames, ...) internally with defaults.
-            # If we want to support chat_files influence on ranking for semantic blocks, 
-            # we might need to update RepoMap.get_semantic_blocks signature.
-            # For now, we stick to existing API of RepoMap.
         )
-        return [asdict(b) for b in blocks]
+        
+        # Get commit SHA
+        commit_sha = get_current_commit_sha(request.root_path)
+        
+        return [asdict(b) for b in blocks], commit_sha

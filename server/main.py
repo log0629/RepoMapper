@@ -36,16 +36,24 @@ embedder = Embedder(model=EMBEDDING_MODEL or "all-MiniLM-L6-v2")
 @app.post("/repomap", response_model=RepoMapResponse)
 async def get_repo_map(request: RepoRequest):
     try:
-        content = manager.extract_repo_map(request)
-        return RepoMapResponse(repo_map=content)
+        content, commit_sha = manager.extract_repo_map(request)
+        return RepoMapResponse(
+            repo_map=content, 
+            repo_id=request.repo_id,
+            commit_sha=commit_sha
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/semantic-blocks", response_model=SemanticBlocksResponse)
 async def get_semantic_blocks(request: RepoRequest):
     try:
-        blocks = manager.extract_semantic_blocks(request)
-        return SemanticBlocksResponse(blocks=blocks)
+        blocks, commit_sha = manager.extract_semantic_blocks(request)
+        # Assign repo_id to blocks if provided in request
+        if request.repo_id:
+            for block in blocks:
+                block['repo_id'] = request.repo_id
+        return SemanticBlocksResponse(blocks=blocks, commit_sha=commit_sha)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -58,7 +66,11 @@ async def embed_summary(request: EmbedSummaryRequest):
         # 2. Generate Embedding
         embedding = embedder.embed_text(summary)
         
-        return EmbedSummaryResponse(summary=summary, em_summary=embedding)
+        return EmbedSummaryResponse(
+            summary=summary, 
+            em_summary=embedding,
+            repo_id=request.repo_id
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -74,6 +86,9 @@ async def embed_blocks(request: EmbedBlocksRequest):
         # Assign embeddings back to blocks
         for block, embedding in zip(request.blocks, embeddings):
             block.em_content = embedding
+            # If repo_id is provided in request, assign it to blocks if they don't have one
+            if request.repo_id and not block.repo_id:
+                block.repo_id = request.repo_id
             
         return EmbedBlocksResponse(blocks=request.blocks)
     except Exception as e:
