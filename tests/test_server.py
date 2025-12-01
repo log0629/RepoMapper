@@ -1,7 +1,18 @@
 import unittest
 from unittest.mock import MagicMock, patch
+import sys
+
+# Mock openai module before importing server.main
+mock_openai = MagicMock()
+sys.modules["openai"] = mock_openai
+
+# Mock sentence_transformers module
+mock_st = MagicMock()
+sys.modules["sentence_transformers"] = mock_st
+
 from fastapi.testclient import TestClient
 from server.main import app
+from server.models import RepoRequest, RepoMapResponse, SemanticBlocksResponse
 
 class TestServer(unittest.TestCase):
     def setUp(self):
