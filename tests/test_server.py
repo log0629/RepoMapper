@@ -20,27 +20,41 @@ class TestServer(unittest.TestCase):
         manager.repos = {}
         self.client = TestClient(app)
 
+    @patch('server.manager.get_current_commit_sha')
     @patch('server.manager.find_src_files')
     @patch('server.manager.RepoMap')
-    def test_extract_repomap(self, mock_repomap_cls, mock_find_files):
+    def test_extract_repomap(self, mock_repomap_cls, mock_find_files, mock_get_sha):
         # Mock find_src_files
         mock_find_files.return_value = ["test.py"]
+        
+        # Mock get_current_commit_sha
+        mock_get_sha.return_value = "abc1234"
         
         # Mock RepoMap instance
         mock_instance = MagicMock()
         mock_instance.get_repo_map.return_value = ("Mock Repo Map", None)
         mock_repomap_cls.return_value = mock_instance
 
-        response = self.client.post("/repomap", json={"root_path": "/tmp/test_repo"})
+        # Test with repo_id
+        response = self.client.post("/repomap", json={
+            "root_path": "/tmp/test_repo",
+            "repo_id": "test/repo"
+        })
         
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["repo_map"], "Mock Repo Map")
+        self.assertEqual(response.json()["repo_id"], "test/repo")
+        self.assertEqual(response.json()["commit_sha"], "abc1234")
 
+    @patch('server.manager.get_current_commit_sha')
     @patch('server.manager.find_src_files')
     @patch('server.manager.RepoMap')
-    def test_extract_repomap_with_options(self, mock_repomap_cls, mock_find_files):
+    def test_extract_repomap_with_options(self, mock_repomap_cls, mock_find_files, mock_get_sha):
         # Mock find_src_files
         mock_find_files.return_value = ["other.py"]
+        
+        # Mock get_current_commit_sha
+        mock_get_sha.return_value = "abc1234"
         
         # Mock RepoMap instance
         mock_instance = MagicMock()
@@ -49,6 +63,7 @@ class TestServer(unittest.TestCase):
 
         payload = {
             "root_path": "/tmp/test_repo",
+            "repo_id": "test/repo",
             "token_limit": 2048,
             "chat_files": ["main.py"],
             "verbose": True,
@@ -57,6 +72,8 @@ class TestServer(unittest.TestCase):
         response = self.client.post("/repomap", json=payload)
         
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["repo_id"], "test/repo")
+        self.assertEqual(response.json()["commit_sha"], "abc1234")
         
         # Verify RepoMap init args
         mock_repomap_cls.assert_called_with(
@@ -77,11 +94,15 @@ class TestServer(unittest.TestCase):
             force_refresh=False
         )
 
+    @patch('server.manager.get_current_commit_sha')
     @patch('server.manager.find_src_files')
     @patch('server.manager.RepoMap')
-    def test_extract_semantic_blocks(self, mock_repomap_cls, mock_find_files):
+    def test_extract_semantic_blocks(self, mock_repomap_cls, mock_find_files, mock_get_sha):
         # Mock find_src_files
         mock_find_files.return_value = ["test.py"]
+        
+        # Mock get_current_commit_sha
+        mock_get_sha.return_value = "abc1234"
 
         # Mock RepoMap instance
         mock_instance = MagicMock()
@@ -110,11 +131,17 @@ class TestServer(unittest.TestCase):
             mock_instance.get_semantic_blocks.return_value = [mock_block]
             mock_repomap_cls.return_value = mock_instance
 
-            response = self.client.post("/semantic-blocks", json={"root_path": "/tmp/test_repo"})
+            # Test with repo_id
+            response = self.client.post("/semantic-blocks", json={
+                "root_path": "/tmp/test_repo",
+                "repo_id": "test/repo"
+            })
             
             self.assertEqual(response.status_code, 200)
             self.assertEqual(len(response.json()["blocks"]), 1)
             self.assertEqual(response.json()["blocks"][0]["name"], "test_func")
+            self.assertEqual(response.json()["blocks"][0]["repo_id"], "test/repo")
+            self.assertEqual(response.json()["commit_sha"], "abc1234")
 
     @patch('server.main.generator')
     @patch('server.main.embedder')
@@ -122,11 +149,16 @@ class TestServer(unittest.TestCase):
         mock_generator.generate_summary.return_value = "Summary text"
         mock_embedder.embed_text.return_value = [0.1, 0.2]
         
-        response = self.client.post("/embed/summary", json={"repo_map": "Map content"})
+        # Test with repo_id
+        response = self.client.post("/embed/summary", json={
+            "repo_map": "Map content",
+            "repo_id": "test/repo"
+        })
         
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["summary"], "Summary text")
         self.assertEqual(response.json()["em_summary"], [0.1, 0.2])
+        self.assertEqual(response.json()["repo_id"], "test/repo")
 
     @patch('server.main.embedder')
     def test_embed_blocks(self, mock_embedder):
@@ -142,11 +174,16 @@ class TestServer(unittest.TestCase):
             "rank_score": 1.0
         }
         
-        response = self.client.post("/embed/blocks", json={"blocks": [block]})
+        # Test with repo_id in request
+        response = self.client.post("/embed/blocks", json={
+            "blocks": [block],
+            "repo_id": "test/repo"
+        })
         
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()["blocks"]), 1)
         self.assertEqual(response.json()["blocks"][0]["em_content"], [0.1, 0.2])
+        self.assertEqual(response.json()["blocks"][0]["repo_id"], "test/repo")
 
 if __name__ == '__main__':
     unittest.main()
