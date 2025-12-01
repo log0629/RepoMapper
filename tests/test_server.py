@@ -117,22 +117,36 @@ class TestServer(unittest.TestCase):
             self.assertEqual(response.json()["blocks"][0]["name"], "test_func")
 
     @patch('server.main.generator')
-    def test_summarize_repomap(self, mock_generator):
+    @patch('server.main.embedder')
+    def test_embed_summary(self, mock_embedder, mock_generator):
         mock_generator.generate_summary.return_value = "Summary text"
+        mock_embedder.embed_text.return_value = [0.1, 0.2]
         
-        response = self.client.post("/summary", json={"repo_map": "Map content"})
+        response = self.client.post("/embed/summary", json={"repo_map": "Map content"})
         
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["summary"], "Summary text")
+        self.assertEqual(response.json()["em_summary"], [0.1, 0.2])
 
     @patch('server.main.embedder')
-    def test_embed_summary(self, mock_embedder):
-        mock_embedder.embed_text.return_value = [0.1, 0.2]
+    def test_embed_blocks(self, mock_embedder):
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2]]
         
-        response = self.client.post("/embed/summary", json={"summary": "Summary text"})
+        block = {
+            "file_path": "test.py",
+            "type": "function_definition",
+            "name": "test_func",
+            "start_line": 1,
+            "end_line": 2,
+            "content": "def test_func(): pass",
+            "rank_score": 1.0
+        }
+        
+        response = self.client.post("/embed/blocks", json={"blocks": [block]})
         
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["embedding"], [0.1, 0.2])
+        self.assertEqual(len(response.json()["blocks"]), 1)
+        self.assertEqual(response.json()["blocks"][0]["em_content"], [0.1, 0.2])
 
 if __name__ == '__main__':
     unittest.main()
