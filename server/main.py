@@ -63,3 +63,7 @@ async def embed_blocks(request: EmbedBlocksRequest):
         return EmbedBlocksResponse(embeddings=embeddings)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+def start():
+    import uvicorn
+    uvicorn.run("server.main:app", host="0.0.0.0", port=8000, reload=True)
