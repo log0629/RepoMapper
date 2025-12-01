@@ -1,19 +1,17 @@
 from typing import List, Any
+from sentence_transformers import SentenceTransformer
 
 class Embedder:
-    def __init__(self, client: Any, model: str = "text-embedding-3-small"):
-        self.client = client
-        self.model = model
+    def __init__(self, model: str = "all-MiniLM-L6-v2"):
+        self.model_name = model
+        self.model = SentenceTransformer(model)
 
     def embed_text(self, text: str) -> List[float]:
         """
         Generates an embedding for a single text string.
         """
-        response = self.client.embeddings.create(
-            input=text,
-            model=self.model
-        )
-        return response.data[0].embedding
+        embedding = self.model.encode(text)
+        return embedding.tolist()
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
@@ -22,8 +20,5 @@ class Embedder:
         if not texts:
             return []
             
-        response = self.client.embeddings.create(
-            input=texts,
-            model=self.model
-        )
-        return [item.embedding for item in response.data]
+        embeddings = self.model.encode(texts)
+        return embeddings.tolist()
