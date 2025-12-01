@@ -21,7 +21,8 @@ dependencies = [
 ]
 
 [project.scripts]
-repomap-mcp = "repomap_server:main"
+repomap = "repomap:main"
+repomap-server = "server.main:start"
 
 [tool.setuptools]
-py-modules = ["repomap_server", "repomap", "repomap_class", "utils", "importance", "scm"]
+packages = ["core", "rag", "server"]
