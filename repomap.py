@@ -13,28 +13,10 @@ import sys
 from pathlib import Path
 from typing import List
 
-from utils import count_tokens, read_text, Tag
-from scm import get_scm_fname
-from importance import is_important, filter_important_files
-from repomap_class import RepoMap
+from core import count_tokens, read_text, Tag, find_src_files, get_scm_fname, is_important, filter_important_files, RepoMap
 
 
-def find_src_files(directory: str) -> List[str]:
-    """Find source files in a directory."""
-    if not os.path.isdir(directory):
-        return [directory] if os.path.isfile(directory) else []
-    
-    src_files = []
-    for root, dirs, files in os.walk(directory):
-        # Skip hidden directories and common non-source directories
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in {'node_modules', '__pycache__', 'venv', 'env'}]
-        
-        for file in files:
-            if not file.startswith('.'):
-                full_path = os.path.join(root, file)
-                src_files.append(full_path)
-    
-    return src_files
+
 
 
 def tool_output(*messages):
