@@ -50,3 +50,26 @@ class EmbedBlocksRequest(BaseModel):
 
 class EmbedBlocksResponse(BaseModel):
     blocks: List[SemanticBlockModel]
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = None
+    repo_ids: Optional[List[str]] = None # For block search filtering
+
+class SearchRepoResponse(BaseModel):
+    repo_id: str
+    score: float
+    summary: Optional[str] = None
+
+class SearchBlockResponse(BaseModel):
+    repo_id: str
+    file_path: str
+    name: str
+    content: str
+    start_line: int
+    score: float
+
+class UnifiedSearchResponse(BaseModel):
+    repositories: List[SearchRepoResponse]
+    blocks: List[SearchBlockResponse]
+
