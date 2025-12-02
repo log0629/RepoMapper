@@ -55,6 +55,9 @@ class TestRagIndexer(unittest.TestCase):
         # Test the core indexing logic (upserting data)
         # We assume the data is already extracted (passed as args)
         
+        # Mock scroll for get_stored_block_ids
+        self.mock_qdrant_client.scroll.return_value = ([], None)
+        
         repo_id = "test/repo"
         commit_sha = "new_sha"
         summary = "test summary"
@@ -87,29 +90,7 @@ class TestRagIndexer(unittest.TestCase):
         self.assertEqual(repo_upsert_call.kwargs['collection_name'], COLLECTION_REPOS)
         
         # Check that PointStruct was called with correct payload
-        # Since PointStruct is mocked, we check the call args of the mock class
-        # But wait, we mocked qdrant_client.http.models.PointStruct
-        # Let's check the points passed to upsert. They are instances of the mocked PointStruct.
-        # It's hard to inspect the mock instance attributes if they weren't set explicitly.
-        # Instead, let's verify that PointStruct was instantiated with the correct payload.
-        
-        # Find the call to PointStruct for repo
-        # We expect 1 call for repo and 1 call for block
-        # But upsert receives a list of points.
-        
-        # Let's inspect the mock_qdrant_client.upsert call arguments directly
-        # The 'points' argument contains the result of PointStruct(...) calls.
-        # Since PointStruct is a mock, these are mock objects.
-        
-        # Better approach: Mock PointStruct to return a dict or simple object so we can inspect it
-        # But we mocked the module.
-        
-        # Let's just verify that PointStruct was CALLED with the correct arguments.
-        # We need to import the mocked PointStruct to check its calls.
         from qdrant_client.http import models
-        
-        # Filter calls to PointStruct
-        # We expect calls with payload containing commit_sha
         found_repo_call = False
         for call in models.PointStruct.call_args_list:
             if 'payload' in call.kwargs and call.kwargs['payload'].get('commit_sha') == commit_sha:
@@ -117,6 +98,61 @@ class TestRagIndexer(unittest.TestCase):
                 break
         
         self.assertTrue(found_repo_call, "PointStruct not called with correct repo payload")
+
+    def test_index_repository_smart_diffing(self):
+        # Setup:
+        # - Stored IDs: [id_keep, id_delete]
+        # - Current Blocks: [block_keep, block_add]
+        # Expected:
+        # - Upsert: [block_keep, block_add] (We upsert all current blocks for now)
+        # - Delete: [id_delete]
+        
+        repo_id = "test/repo"
+        commit_sha = "new_sha"
+        summary = "summary"
+        em_summary = [0.1]
+        
+        # Mock ID generation to be predictable
+        def mock_generate_id(key):
+            if "keep" in key: return "id_keep"
+            if "add" in key: return "id_add"
+            if "delete" in key: return "id_delete"
+            return "id_unknown"
+            
+        self.indexer._generate_id = mock_generate_id
+        
+        # Mock get_stored_block_ids
+        self.indexer.get_stored_block_ids = MagicMock(return_value={"id_keep", "id_delete"})
+        
+        blocks = [
+            {"name": "keep", "file_path": "f1", "start_line": 1, "em_content": [0.1], "content": "c", "type": "t", "rank_score": 1.0, "end_line": 2},
+            {"name": "add", "file_path": "f2", "start_line": 1, "em_content": [0.2], "content": "c", "type": "t", "rank_score": 1.0, "end_line": 2}
+        ]
+        
+        self.indexer.index_repository_data(repo_id, commit_sha, summary, em_summary, blocks)
+        
+        # Verify Upsert (Repo Info + Added Block)
+        # Repo info is always upserted
+        self.assertEqual(self.mock_qdrant_client.upsert.call_count, 2)
+        
+        # Verify Block Upsert: Should contain BOTH 'id_keep' and 'id_add'
+        # Since points are mocks, we verify the PointStruct calls used to create them
+        from qdrant_client.http import models
+        
+        upserted_ids = set()
+        for call in models.PointStruct.call_args_list:
+            if 'id' in call.kwargs:
+                upserted_ids.add(call.kwargs['id'])
+                
+        self.assertIn("id_keep", upserted_ids)
+        self.assertIn("id_add", upserted_ids)
+        
+        # Verify Delete: Should contain 'id_delete'
+        self.mock_qdrant_client.delete.assert_called_once()
+        
+        # Verify PointIdsList was called with correct points
+        point_ids_list_call = models.PointIdsList.call_args
+        self.assertEqual(point_ids_list_call.kwargs['points'], ["id_delete"])
 
 if __name__ == '__main__':
     unittest.main()
