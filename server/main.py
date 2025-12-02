@@ -274,6 +274,54 @@ async def debug_stats():
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/debug/search")
+async def debug_search(request: SearchRequest):
+    try:
+        # 1. Embed
+        query_vector = embedder.embed_text(request.query)
+        
+        # 2. Search Repos (No filter)
+        repo_hits = indexer.client.search(
+            collection_name="repositories",
+            query_vector=query_vector,
+            limit=5,
+            with_payload=True
+        )
+        
+        # 3. Search Blocks (With filter if provided)
+        repo_filter = None
+        if request.repo_ids:
+            repo_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="repo_id",
+                        match=models.MatchAny(any=request.repo_ids)
+                    )
+                ]
+            )
+            
+        block_hits = indexer.client.search(
+            collection_name="code_blocks",
+            query_vector=query_vector,
+            query_filter=repo_filter,
+            limit=5,
+            with_payload=True
+        )
+        
+        return {
+            "query": request.query,
+            "vector_len": len(query_vector),
+            "vector_sample": query_vector[:5],
+            "repo_hits": [
+                {"id": h.id, "score": h.score, "payload": h.payload} for h in repo_hits
+            ],
+            "block_hits": [
+                {"id": h.id, "score": h.score, "payload": h.payload} for h in block_hits
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 def start():
     import uvicorn
     # Create collections on startup
