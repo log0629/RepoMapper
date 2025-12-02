@@ -20,7 +20,7 @@ manager = RepositoryManager()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 if not OPENAI_API_KEY:
     print("Warning: OPENAI_API_KEY not set. RAG features will fail.")
@@ -240,6 +240,20 @@ async def search_unified(request: SearchRequest):
         return UnifiedSearchResponse(repositories=repos, blocks=blocks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/debug/stats")
+async def debug_stats():
+    try:
+        repo_count = indexer.client.count(collection_name="repositories").count
+        block_count = indexer.client.count(collection_name="code_blocks").count
+        return {
+            "repositories": repo_count,
+            "code_blocks": block_count,
+            "embedding_model": EMBEDDING_MODEL,
+            "vector_size": 384 # Hardcoded in indexer
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 def start():
     import uvicorn
