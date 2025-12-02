@@ -35,6 +35,13 @@ embedder = Embedder(model=EMBEDDING_MODEL or "all-MiniLM-L6-v2")
 from rag.indexer import RepoIndexer
 indexer = RepoIndexer()
 
+@app.on_event("startup")
+async def startup_event():
+    try:
+        indexer.create_collections()
+    except Exception as e:
+        print(f"Warning: Failed to create collections: {e}")
+
 
 @app.post("/repomap", response_model=RepoMapResponse)
 async def get_repo_map(request: RepoRequest):
