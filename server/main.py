@@ -281,12 +281,12 @@ async def debug_search(request: SearchRequest):
         query_vector = embedder.embed_text(request.query)
         
         # 2. Search Repos (No filter)
-        repo_hits = indexer.client.search(
+        repo_hits = indexer.client.query_points(
             collection_name="repositories",
-            query_vector=query_vector,
+            query=query_vector,
             limit=5,
             with_payload=True
-        )
+        ).points
         
         # 3. Search Blocks (With filter if provided)
         repo_filter = None
@@ -300,13 +300,13 @@ async def debug_search(request: SearchRequest):
                 ]
             )
             
-        block_hits = indexer.client.search(
+        block_hits = indexer.client.query_points(
             collection_name="code_blocks",
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=repo_filter,
             limit=5,
             with_payload=True
-        )
+        ).points
         
         return {
             "query": request.query,
