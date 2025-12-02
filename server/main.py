@@ -12,6 +12,7 @@ from .manager import RepositoryManager
 import os
 from openai import OpenAI
 from rag import RepoSummaryGenerator, Embedder, OpenAILLMClient
+from qdrant_client.http import models
 
 app = FastAPI(title="RepoMapper API")
 manager = RepositoryManager()
