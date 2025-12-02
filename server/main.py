@@ -246,11 +246,30 @@ async def debug_stats():
     try:
         repo_count = indexer.client.count(collection_name="repositories").count
         block_count = indexer.client.count(collection_name="code_blocks").count
+        
+        # Get a sample repo
+        sample_repo = indexer.client.scroll(
+            collection_name="repositories",
+            limit=1,
+            with_payload=True,
+            with_vectors=False
+        )[0]
+        
+        # Get a sample block
+        sample_block = indexer.client.scroll(
+            collection_name="code_blocks",
+            limit=1,
+            with_payload=True,
+            with_vectors=False
+        )[0]
+        
         return {
             "repositories": repo_count,
             "code_blocks": block_count,
             "embedding_model": EMBEDDING_MODEL,
-            "vector_size": 384 # Hardcoded in indexer
+            "vector_size": 384,
+            "sample_repo_payload": sample_repo[0].payload if sample_repo else None,
+            "sample_block_payload": sample_block[0].payload if sample_block else None
         }
     except Exception as e:
         return {"error": str(e)}
