@@ -72,6 +72,7 @@ class RepoIndexer:
         """Index repository data (summary and blocks) into Qdrant."""
         
         # 1. Upsert Repository Info
+        print(f"DEBUG: Upserting repo {repo_id}, vector size: {len(em_summary) if em_summary else 'None'}")
         self.client.upsert(
             collection_name=COLLECTION_REPOS,
             points=[
@@ -93,6 +94,12 @@ class RepoIndexer:
         for block in blocks:
             # Generate a unique ID for the block
             block_id = self._generate_id(f"{repo_id}:{block['file_path']}:{block['name']}:{block['start_line']}")
+            
+            if 'em_content' not in block:
+                print(f"ERROR: Block {block.get('name')} missing em_content")
+                continue
+            
+            # print(f"DEBUG: Block {block.get('name')} vector size: {len(block['em_content'])}")
             
             points.append(models.PointStruct(
                 id=block_id,
