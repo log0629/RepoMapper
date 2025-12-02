@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException
+from typing import List
 from .models import (
     RepoRequest, RepoMapResponse, 
     SemanticBlocksResponse, 
     EmbedSummaryRequest, EmbedSummaryResponse,
-    EmbedBlocksRequest, EmbedBlocksResponse
+    EmbedBlocksRequest, EmbedBlocksResponse,
+    SearchRequest, SearchRepoResponse, SearchBlockResponse,
+    UnifiedSearchResponse
 )
 from .manager import RepositoryManager
 import os
@@ -167,6 +170,74 @@ async def index_repository(request: RepoRequest):
         
         return {"status": "indexed", "commit_sha": current_sha, "repo_id": request.repo_id}
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/search/repos", response_model=List[SearchRepoResponse])
+async def search_repos(request: SearchRequest):
+    try:
+        # 1. Embed Query
+        query_vector = embedder.embed_text(request.query)
+        
+        # 2. Search Repositories
+        results = indexer.search_repositories(
+            query_vector=query_vector,
+            limit=request.limit or 5
+        )
+        
+        return [SearchRepoResponse(**r) for r in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/search/code", response_model=List[SearchBlockResponse])
+async def search_code(request: SearchRequest):
+    try:
+        # 1. Embed Query
+        query_vector = embedder.embed_text(request.query)
+        
+        # 2. Search Code Blocks
+        results = indexer.search_code_blocks(
+            query_vector=query_vector,
+            repo_ids=request.repo_ids,
+            limit=request.limit or 10
+        )
+        
+        return [SearchBlockResponse(**r) for r in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/search/unified", response_model=UnifiedSearchResponse)
+async def search_unified(request: SearchRequest):
+    try:
+        # 1. Embed Query (Once)
+        query_vector = embedder.embed_text(request.query)
+        
+        # 2. Search Repositories
+        repo_results = indexer.search_repositories(
+            query_vector=query_vector,
+            limit=request.limit or 5
+        )
+        repos = [SearchRepoResponse(**r) for r in repo_results]
+        
+        # 3. Search Code Blocks (Filtered by found repos)
+        # If no repos found, we might still want to search all blocks? 
+        # Or strictly follow the "related to found repos" logic?
+        # User said: "based on repo id list returned by 1)"
+        # So we filter by found repos.
+        
+        found_repo_ids = [r.repo_id for r in repos]
+        
+        block_results = []
+        if found_repo_ids:
+            block_results = indexer.search_code_blocks(
+                query_vector=query_vector,
+                repo_ids=found_repo_ids,
+                limit=request.limit or 10 # Or maybe a different limit for blocks?
+            )
+            
+        blocks = [SearchBlockResponse(**r) for r in block_results]
+        
+        return UnifiedSearchResponse(repositories=repos, blocks=blocks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
