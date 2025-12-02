@@ -219,6 +219,63 @@ class RepoIndexer:
             )
             print(f"Upserted {len(points)} blocks for {repo_id}")
 
+    def search_repositories(self, query_vector: List[float], limit: int = 5) -> List[Dict[str, Any]]:
+        """Search for relevant repositories based on query vector."""
+        try:
+            results = self.client.search(
+                collection_name=COLLECTION_REPOS,
+                query_vector=query_vector,
+                limit=limit,
+                with_payload=True
+            )
+            return [
+                {
+                    "repo_id": hit.payload.get("repo_id"),
+                    "score": hit.score,
+                    "summary": hit.payload.get("summary")
+                }
+                for hit in results
+            ]
+        except Exception as e:
+            print(f"Error searching repositories: {e}")
+            return []
+
+    def search_code_blocks(self, query_vector: List[float], repo_ids: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+        """Search for relevant code blocks within specified repositories."""
+        try:
+            # Filter by repo_ids
+            repo_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="repo_id",
+                        match=models.MatchAny(any=repo_ids)
+                    )
+                ]
+            ) if repo_ids else None
+
+            results = self.client.search(
+                collection_name=COLLECTION_BLOCKS,
+                query_vector=query_vector,
+                query_filter=repo_filter,
+                limit=limit,
+                with_payload=True
+            )
+            
+            return [
+                {
+                    "repo_id": hit.payload.get("repo_id"),
+                    "file_path": hit.payload.get("file_path"),
+                    "name": hit.payload.get("name"),
+                    "content": hit.payload.get("content"),
+                    "start_line": hit.payload.get("start_line"),
+                    "score": hit.score
+                }
+                for hit in results
+            ]
+        except Exception as e:
+            print(f"Error searching code blocks: {e}")
+            return []
+
     def _generate_id(self, key: str) -> str:
         """Generate a deterministic UUID from a string key."""
         hash_val = hashlib.md5(key.encode()).hexdigest()
