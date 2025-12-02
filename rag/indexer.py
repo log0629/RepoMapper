@@ -222,12 +222,12 @@ class RepoIndexer:
     def search_repositories(self, query_vector: List[float], limit: int = 5) -> List[Dict[str, Any]]:
         """Search for relevant repositories based on query vector."""
         try:
-            results = self.client.search(
+            results = self.client.query_points(
                 collection_name=COLLECTION_REPOS,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=limit,
                 with_payload=True
-            )
+            ).points
             return [
                 {
                     "repo_id": hit.payload.get("repo_id"),
@@ -253,13 +253,13 @@ class RepoIndexer:
                 ]
             ) if repo_ids else None
 
-            results = self.client.search(
+            results = self.client.query_points(
                 collection_name=COLLECTION_BLOCKS,
-                query_vector=query_vector,
+                query=query_vector,
                 query_filter=repo_filter,
                 limit=limit,
                 with_payload=True
-            )
+            ).points
             
             return [
                 {
