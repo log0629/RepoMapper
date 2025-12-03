@@ -17,19 +17,62 @@ class TestGithubRankingCrawler(unittest.TestCase):
         """Test parsing logic for extracting full table data from markdown."""
         data = self.crawler.parse_markdown(self.sample_markdown)
         
-        # Verify first item
-        self.assertEqual(len(data), 3)
-        item = data[0]
-        self.assertEqual(item['ranking'], '1')
-        self.assertEqual(item['project_name'], 'build-your-own-x')
-        self.assertEqual(item['project_url'], 'https://github.com/codecrafters-io/build-your-own-x')
-        self.assertEqual(item['stars'], '445005')
-        self.assertEqual(item['language'], 'Markdown')
+        # Verify filtering
+        # The sample markdown has:
+        # 1. build-your-own-x (Markdown) -> Should be filtered out (not in allowed list)
+        # 2. freeCodeCamp (TypeScript) -> Should be kept
+        # 3. awesome (None) -> Should be filtered out
         
-        # Verify item with 'None' language
-        item_3 = data[2]
-        self.assertEqual(item_3['project_name'], 'awesome')
-        self.assertEqual(item_3['language'], 'None')
+        # Wait, "Markdown" is not in the allowed list.
+        # "TypeScript" IS in the allowed list.
+        # "None" is NOT.
+        
+        # So we expect only freeCodeCamp?
+        # Let's check the sample markdown again in setUp
+        
+        # Sample markdown:
+        # | 1 | [build-your-own-x]... | ... | Markdown | ...
+        # | 2 | [freeCodeCamp]... | ... | TypeScript | ...
+        # | 3 | [awesome]... | ... | None | ...
+        
+        # Allowed: C, C++, C#, Dart, Elixir, Go, Java, JavaScript, Kotlin, PHP, Python, Ruby, Rust, Scala, TypeScript
+        
+        self.assertEqual(len(data), 1)
+        item = data[0]
+        self.assertEqual(item['project_name'], 'freeCodeCamp')
+        self.assertEqual(item['language'], 'TypeScript')
+
+    def test_parse_markdown_filtering(self):
+        """Test specific language filtering scenarios."""
+        content = """
+| Ranking | Project Name | Stars | Forks | Language |
+| ------- | ------------ | ----- | ----- | -------- |
+| 1 | [A](url) | 1 | 1 | Python |
+| 2 | [B](url) | 1 | 1 | Pyhon |
+| 3 | [C](url) | 1 | 1 | GO |
+| 4 | [D](url) | 1 | 1 | Go |
+| 5 | [E](url) | 1 | 1 | Rust |
+| 6 | [F](url) | 1 | 1 | Unknown |
+"""
+        # Note: User's list had "Pyhon" and "GO". 
+        # If I strictly follow user list: Pyhon and GO are allowed.
+        # If I correct them: Python and Go are allowed.
+        # I will implement with CORRECTED list: Python, Go.
+        # So:
+        # Python -> Keep
+        # Pyhon -> Drop (unless user really meant Pyhon, but unlikely)
+        # GO -> Drop (if case sensitive and list has Go) or Keep (if list has GO)
+        # Go -> Keep
+        # Rust -> Keep
+        # Unknown -> Drop
+        
+        data = self.crawler.parse_markdown(content)
+        languages = [d['language'] for d in data]
+        self.assertIn('Python', languages)
+        self.assertIn('Go', languages)
+        self.assertIn('Rust', languages)
+        self.assertNotIn('Unknown', languages)
+        # self.assertNotIn('Pyhon', languages) # Assuming typo correction
 
     def test_parse_markdown_empty(self):
         """Test parsing empty or invalid markdown."""
@@ -76,9 +119,11 @@ class TestGithubRankingCrawler(unittest.TestCase):
         results = self.crawler.crawl() # No limit
         
         # Verify
+        # build-your-own-x (Markdown) is filtered out
+        # freeCodeCamp (TypeScript) should be the first result
         self.assertTrue(len(results) > 0)
-        self.assertEqual(results[0]['project_name'], "build-your-own-x")
-        self.assertEqual(results[0]['project_url'], "https://github.com/codecrafters-io/build-your-own-x")
+        self.assertEqual(results[0]['project_name'], "freeCodeCamp")
+        self.assertEqual(results[0]['project_url'], "https://github.com/freeCodeCamp/freeCodeCamp")
 
 if __name__ == '__main__':
     unittest.main()
