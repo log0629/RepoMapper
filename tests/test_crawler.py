@@ -38,29 +38,31 @@ class TestGithubRankingCrawler(unittest.TestCase):
 
     @patch('crawler.github_ranking.requests.get')
     def test_fetch_file_list(self, mock_get):
-        """Test fetching file list from GitHub page."""
-        # Mock HTML response
+        """Test fetching file list from GitHub API."""
+        # Mock JSON response
         mock_response = MagicMock()
         mock_response.status_code = 200
-        # Simplified HTML structure mimicking GitHub file list
-        mock_response.text = """
-        <a href="/EvanLi/Github-Ranking/blob/master/Top100/Top-100-stars.md">Top-100-stars.md</a>
-        <a href="/EvanLi/Github-Ranking/blob/master/Top100/Top-100-Python.md">Top-100-Python.md</a>
-        """
+        mock_response.json.return_value = [
+            {"name": "Top-100-stars.md"},
+            {"name": "Top-100-Python.md"},
+            {"name": "other_file.txt"}
+        ]
         mock_get.return_value = mock_response
 
         files = self.crawler.fetch_file_list()
         self.assertIn("Top-100-stars.md", files)
         self.assertIn("Top-100-Python.md", files)
+        self.assertNotIn("other_file.txt", files)
+        self.assertEqual(len(files), 2)
 
     @patch('crawler.github_ranking.requests.get')
     def test_crawl(self, mock_get):
         """Test the full crawl process."""
         # Setup mocks
-        # 1. First call: fetch file list
+        # 1. First call: fetch file list (API)
         mock_response_list = MagicMock()
         mock_response_list.status_code = 200
-        mock_response_list.text = '<a href="/EvanLi/Github-Ranking/blob/master/Top100/Top-100-stars.md">Top-100-stars.md</a>'
+        mock_response_list.json.return_value = [{"name": "Top-100-stars.md"}]
         
         # 2. Second call: fetch raw markdown
         mock_response_md = MagicMock()
