@@ -3,23 +3,23 @@ import re
 from typing import List
 
 class GithubRankingCrawler:
-    BASE_URL = "https://github.com/EvanLi/Github-Ranking/tree/master/Top100"
+    BASE_URL = "https://api.github.com/repos/EvanLi/Github-Ranking/contents/Top100"
     RAW_BASE_URL = "https://raw.githubusercontent.com/EvanLi/Github-Ranking/master/Top100"
 
     def fetch_file_list(self) -> List[str]:
-        """Fetch list of markdown files from the ranking repository."""
+        """Fetch list of markdown files from the ranking repository using GitHub API."""
         try:
             response = requests.get(self.BASE_URL)
             response.raise_for_status()
             
-            # Simple regex to find links to markdown files in the Top100 directory
-            # Pattern looks for hrefs ending in .md
-            # Note: GitHub HTML structure might change, but this is a basic approach
-            # Looking for href="/EvanLi/Github-Ranking/blob/master/Top100/Top-100-stars.md"
-            pattern = r'href="/EvanLi/Github-Ranking/blob/master/Top100/([^"]+\.md)"'
-            files = re.findall(pattern, response.text)
+            # API returns a list of file objects
+            # [{"name": "Top-100-stars.md", ...}, ...]
+            files = []
+            for item in response.json():
+                if item.get("name", "").endswith(".md"):
+                    files.append(item["name"])
             
-            return list(set(files)) # Remove duplicates
+            return files
         except Exception as e:
             print(f"Error fetching file list: {e}")
             return []
