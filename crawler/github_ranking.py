@@ -5,6 +5,12 @@ from typing import List
 class GithubRankingCrawler:
     BASE_URL = "https://api.github.com/repos/EvanLi/Github-Ranking/contents/Top100"
     RAW_BASE_URL = "https://raw.githubusercontent.com/EvanLi/Github-Ranking/master/Top100"
+    
+    # Corrected list of allowed languages
+    ALLOWED_LANGUAGES = {
+        "C", "C++", "C#", "Dart", "Elixir", "Go", "Java", "JavaScript", 
+        "Kotlin", "PHP", "Python", "Ruby", "Rust", "Scala", "TypeScript"
+    }
 
     def fetch_file_list(self) -> List[str]:
         """Fetch list of markdown files from the ranking repository using GitHub API."""
@@ -63,14 +69,30 @@ class GithubRankingCrawler:
                     project_url = match.group(2)
                 
                 # Construct row data
-                # We handle potential missing columns gracefully
+                language = parts[5] if len(parts) > 5 else ""
+                
+                # Filter by language
+                # Check if language is in allowed list (case-insensitive for robustness, or strict?)
+                # User provided specific casing. Let's try strict first, but handle "Go" vs "GO" if needed.
+                # Actually, let's normalize to title case for comparison if not C/C++/C# etc.
+                # But C# is special.
+                # Let's just check if the language is in the set.
+                # Also handle "Pyhon" typo from user request if it appears in data? No, data has "Python".
+                # User request had "Pyhon" in the list. I corrected it to "Python" in ALLOWED_LANGUAGES.
+                
+                # Case-insensitive check might be safer.
+                # Create a normalized set for checking
+                allowed_normalized = {l.lower() for l in self.ALLOWED_LANGUAGES}
+                if language.lower() not in allowed_normalized:
+                    continue
+
                 row = {
                     "ranking": parts[1] if len(parts) > 1 else "",
                     "project_name": project_name,
                     "project_url": project_url,
                     "stars": parts[3] if len(parts) > 3 else "",
                     "forks": parts[4] if len(parts) > 4 else "",
-                    "language": parts[5] if len(parts) > 5 else "",
+                    "language": language,
                     "open_issues": parts[6] if len(parts) > 6 else "",
                     "description": parts[7] if len(parts) > 7 else "",
                     "last_commit": parts[8] if len(parts) > 8 else ""
