@@ -14,14 +14,22 @@ class TestGithubRankingCrawler(unittest.TestCase):
 """
 
     def test_parse_markdown(self):
-        """Test parsing logic for extracting GitHub URLs from markdown table."""
-        urls = self.crawler.parse_markdown(self.sample_markdown)
-        expected_urls = [
-            "https://github.com/codecrafters-io/build-your-own-x",
-            "https://github.com/freeCodeCamp/freeCodeCamp",
-            "https://github.com/sindresorhus/awesome"
-        ]
-        self.assertEqual(urls, expected_urls)
+        """Test parsing logic for extracting full table data from markdown."""
+        data = self.crawler.parse_markdown(self.sample_markdown)
+        
+        # Verify first item
+        self.assertEqual(len(data), 3)
+        item = data[0]
+        self.assertEqual(item['ranking'], '1')
+        self.assertEqual(item['project_name'], 'build-your-own-x')
+        self.assertEqual(item['project_url'], 'https://github.com/codecrafters-io/build-your-own-x')
+        self.assertEqual(item['stars'], '445005')
+        self.assertEqual(item['language'], 'Markdown')
+        
+        # Verify item with 'None' language
+        item_3 = data[2]
+        self.assertEqual(item_3['project_name'], 'awesome')
+        self.assertEqual(item_3['language'], 'None')
 
     def test_parse_markdown_empty(self):
         """Test parsing empty or invalid markdown."""
@@ -63,11 +71,12 @@ class TestGithubRankingCrawler(unittest.TestCase):
         mock_get.side_effect = [mock_response_list, mock_response_md]
 
         # Execute
-        results = self.crawler.crawl(limit=1) # Limit to 1 file for testing
+        results = self.crawler.crawl() # No limit
         
         # Verify
         self.assertTrue(len(results) > 0)
-        self.assertEqual(results[0], "https://github.com/codecrafters-io/build-your-own-x")
+        self.assertEqual(results[0]['project_name'], "build-your-own-x")
+        self.assertEqual(results[0]['project_url'], "https://github.com/codecrafters-io/build-your-own-x")
 
 if __name__ == '__main__':
     unittest.main()
