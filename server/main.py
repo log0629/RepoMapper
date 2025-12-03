@@ -324,12 +324,12 @@ async def debug_search(request: SearchRequest):
         return {"error": str(e)}
 
 @app.post("/crawl/github-ranking")
-async def crawl_github_ranking(limit: int = 10):
+async def crawl_github_ranking():
     try:
         from crawler.github_ranking import GithubRankingCrawler
         crawler = GithubRankingCrawler()
-        urls = crawler.crawl(limit=limit)
-        return {"urls": urls, "count": len(urls)}
+        data = crawler.crawl()
+        return {"data": data, "count": len(data)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
