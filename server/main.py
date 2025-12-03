@@ -323,6 +323,16 @@ async def debug_search(request: SearchRequest):
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/crawl/github-ranking")
+async def crawl_github_ranking(limit: int = 10):
+    try:
+        from crawler.github_ranking import GithubRankingCrawler
+        crawler = GithubRankingCrawler()
+        urls = crawler.crawl(limit=limit)
+        return {"urls": urls, "count": len(urls)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 def start():
     import uvicorn
     # Create collections on startup
